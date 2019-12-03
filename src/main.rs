@@ -1,5 +1,6 @@
 use clap::{App, Arg};
 use futures::future::join_all;
+use prettytable::{cell, format, row, Cell, Row, Table};
 use reqwest;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -78,7 +79,7 @@ async fn request(item: &Value, headers: HeaderMap) -> Result<Value, Box<dyn std:
 
 async fn async_request(config: Arc<Config>) -> Result<Vec<Value>, Box<dyn std::error::Error>> {
     let mut request_list = Vec::new();
-    for item in &config.sync_list {
+    for item in &config.async_list {
         request_list.push(request(item, build_headers(&config)))
     }
     let response = join_all(request_list).await;
@@ -87,7 +88,7 @@ async fn async_request(config: Arc<Config>) -> Result<Vec<Value>, Box<dyn std::e
 
 async fn sync_request(config: Arc<Config>) -> Result<Vec<Value>, Box<dyn std::error::Error>> {
     let mut results: Vec<Value> = Vec::new();
-    for item in &config.async_list {
+    for item in &config.sync_list {
         let val = request(item, build_headers(&config)).await?;
         results.push(val);
     }
@@ -124,7 +125,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let async_dur: f64 = async_start.elapsed().unwrap().as_secs_f64();
 
     println!("=================");
-    println!("Sync results:\n{:#?}\ndur: {}", results, sync_dur);
+    // println!("Sync results:\n{:#?}\ndur: {}", results, sync_dur);
+    println!("Sync results");
+    // println!("|\r\turl|\r\tdur|\r\tstatus|\r\trequest|");
+    // println!("|\r\turl|\r\tdur|\r\tstatus|\r\trequest|");
+    let mut table = Table::new();
+    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+    table.add_row(row!["URL", "Dur", "Status",]);
+    for item in results.iter() {
+        table.add_row(Row::new(vec![
+            Cell::new(&format!("{}", item["request"]["url"])),
+            Cell::new(&format!("{}", item["dur"])),
+            Cell::new(&format!("{}", item["status"])),
+            Cell::new(&format!("{}", item["request"])),
+        ]));
+    }
+    table.printstd();
+    println!("Total Dur: {}", sync_dur);
     println!("=================");
     println!("=================");
     println!("Async results:\n{:#?}\ndur: {}", async_results, async_dur);
