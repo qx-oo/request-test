@@ -1,0 +1,54 @@
+{
+    "headers": {},
+    "sync_list": [
+        {
+            "method": "get",
+            "url": "http://127.0.0.1:8000/api/1.0/cms/content/",
+            "data": {}
+        },
+        {
+            "method": "post",
+            "url": "http://127.0.0.1:8000/api/1.0/common/normal-resource/",
+            "data": {
+                "content": [
+                    {
+                        "method": "list",
+                        "params": {
+                            "ordering": "-published_time",
+                            "age_range": -7
+                        }
+                    }
+                ],
+                "contentcategory": [
+                    {
+                        "method": "list",
+                        "params": {
+                            "is_top": 1,
+                            "age_range": -7
+                        }
+                    }
+                ],
+                "tagset": [
+                    {
+                        "method": "list",
+                        "params": {
+                            "age_range": -7
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "async_list": [
+        {
+            "method": "get",
+            "url": "http://127.0.0.1:8000/api/1.0/cms/content/",
+            "data": {}
+        },
+        {
+            "method": "get",
+            "url": "http://127.0.0.1:8000/api/1.0/cms/content/",
+            "data": {}
+        }
+    ]
+}
