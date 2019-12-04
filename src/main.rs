@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use futures::future::join_all;
-use prettytable::{cell, row, Cell, Row, Table};
+use prettytable::{cell, color, row, Attr, Cell, Row, Table};
 use reqwest;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -69,6 +69,11 @@ async fn request(item: &Value, headers: HeaderMap) -> Result<Value, Box<dyn std:
         Ok(res) => (res, "success".to_owned()),
         _ => (json!({}), "fail".to_owned()),
     };
+    // Ok([
+    //     ("request", item.clone()),
+    //     ("dur", start.elapsed().unwrap().as_secs_f64()),
+    //     ("status": status),
+    // ].iter().collect())
     Ok(json!({
         "request": item.clone(),
         // "response": res,
@@ -95,6 +100,25 @@ async fn sync_request(config: Arc<Config>) -> Result<Vec<Value>, Box<dyn std::er
     Ok(results)
 }
 
+fn get_table(results: Vec<Value>, notify_dur: f64) -> Table {
+    let mut table = Table::new();
+    table.add_row(row!["URL", "Dur", "Status",]);
+    for item in results.iter() {
+        let dur: f64 = serde_json::from_value(item["dur"].clone()).unwrap();
+        let mut line_color = color::GREEN;
+        if dur > notify_dur {
+            line_color = color::RED;
+        }
+        table.add_row(Row::new(vec![
+            Cell::new(&format!("{}", item["request"]["url"])),
+            Cell::new(&format!("{}", item["dur"])).with_style(Attr::ForegroundColor(line_color)),
+            Cell::new(&format!("{}", item["status"])),
+            Cell::new(&format!("{:#?}", item["request"])),
+        ]));
+    }
+    table
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let matches = App::new("Qxoo Program")
@@ -108,6 +132,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .value_name("Config File")
                 .takes_value(true),
         )
+        .arg(
+            Arg::with_name("time")
+                .short("t")
+                .long("time")
+                .value_name("Notify Duration Time, Default 0.8")
+                .takes_value(true),
+        )
         .get_matches();
     let config = matches.value_of("config").unwrap_or("config.json");
     let config = Arc::new(match get_config(config) {
@@ -115,6 +146,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Err(_) => Err("配置文件错误")?,
     });
     println!("Start Request Test");
+    let notify_dur = matches.value_of("time").unwrap_or("0.8");
+    let notify_dur = match notify_dur.parse::<f64>() {
+        Ok(_dur) => _dur,
+        Err(_) => Err("提醒阀值参数错误")?,
+    };
 
     let sync_start = SystemTime::now();
     let results = sync_request(config.clone()).await?;
@@ -126,31 +162,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("=================");
     println!("Sync results");
-    let mut table = Table::new();
-    table.add_row(row!["URL", "Dur", "Status",]);
-    for item in results.iter() {
-        table.add_row(Row::new(vec![
-            Cell::new(&format!("{}", item["request"]["url"])),
-            Cell::new(&format!("{}", item["dur"])),
-            Cell::new(&format!("{}", item["status"])),
-            Cell::new(&format!("{:#?}", item["request"])),
-        ]));
-    }
+    let table = get_table(results, notify_dur);
     table.printstd();
     println!("Total Dur: {}", sync_dur);
     println!("=================");
     println!("=================");
     println!("Async results");
-    let mut table = Table::new();
-    table.add_row(row!["URL", "Dur", "Status",]);
-    for item in async_results.iter() {
-        table.add_row(Row::new(vec![
-            Cell::new(&format!("{}", item["request"]["url"])),
-            Cell::new(&format!("{}", item["dur"])),
-            Cell::new(&format!("{}", item["status"])),
-            Cell::new(&format!("{:#?}", item["request"])),
-        ]));
-    }
+    let table = get_table(async_results, notify_dur);
     table.printstd();
     println!("Total Dur: {}", async_dur);
     println!("=================");
