@@ -21,9 +21,15 @@ struct Config {
 }
 
 fn get_config(filename: &str) -> Result<Config, Box<dyn std::error::Error>> {
-    let file = File::open(filename)?;
+    let file = match File::open(filename) {
+        Ok(f) => f,
+        Err(_) => Err("文件不存在")?,
+    };
     let reader = BufReader::new(file);
-    let val: Config = serde_json::from_reader(reader)?;
+    let val: Config = match serde_json::from_reader(reader) {
+        Ok(cfg) => cfg,
+        Err(_) => Err("配置文件格式错误")?,
+    };
     Ok(val)
 }
 
@@ -141,10 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .get_matches();
     let config = matches.value_of("config").unwrap_or("config.json");
-    let config = Arc::new(match get_config(config) {
-        Ok(cfg) => cfg,
-        Err(_) => Err("配置文件错误")?,
-    });
+    let config = Arc::new(get_config(config)?);
     println!("Start Request Test");
     let notify_dur = matches.value_of("time").unwrap_or("0.8");
     let notify_dur = match notify_dur.parse::<f64>() {
