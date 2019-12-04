@@ -1,6 +1,6 @@
 use clap::{App, Arg};
 use futures::future::join_all;
-use prettytable::{cell, format, row, Cell, Row, Table};
+use prettytable::{cell, row, Cell, Row, Table};
 use reqwest;
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use serde::{Deserialize, Serialize};
@@ -97,7 +97,6 @@ async fn sync_request(config: Arc<Config>) -> Result<Vec<Value>, Box<dyn std::er
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Start Request Test");
     let matches = App::new("Qxoo Program")
         .version("1.0")
         .author("shawn <q-x64@live.com>")
@@ -113,8 +112,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = matches.value_of("config").unwrap_or("config.json");
     let config = Arc::new(match get_config(config) {
         Ok(cfg) => cfg,
-        Err(e) => panic!("配置文件错误: {:?}", e),
+        Err(_) => Err("配置文件错误")?,
     });
+    println!("Start Request Test");
 
     let sync_start = SystemTime::now();
     let results = sync_request(config.clone()).await?;
@@ -125,26 +125,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let async_dur: f64 = async_start.elapsed().unwrap().as_secs_f64();
 
     println!("=================");
-    // println!("Sync results:\n{:#?}\ndur: {}", results, sync_dur);
     println!("Sync results");
-    // println!("|\r\turl|\r\tdur|\r\tstatus|\r\trequest|");
-    // println!("|\r\turl|\r\tdur|\r\tstatus|\r\trequest|");
     let mut table = Table::new();
-    table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
     table.add_row(row!["URL", "Dur", "Status",]);
     for item in results.iter() {
         table.add_row(Row::new(vec![
             Cell::new(&format!("{}", item["request"]["url"])),
             Cell::new(&format!("{}", item["dur"])),
             Cell::new(&format!("{}", item["status"])),
-            Cell::new(&format!("{}", item["request"])),
+            Cell::new(&format!("{:#?}", item["request"])),
         ]));
     }
     table.printstd();
     println!("Total Dur: {}", sync_dur);
     println!("=================");
     println!("=================");
-    println!("Async results:\n{:#?}\ndur: {}", async_results, async_dur);
+    println!("Async results");
+    let mut table = Table::new();
+    table.add_row(row!["URL", "Dur", "Status",]);
+    for item in async_results.iter() {
+        table.add_row(Row::new(vec![
+            Cell::new(&format!("{}", item["request"]["url"])),
+            Cell::new(&format!("{}", item["dur"])),
+            Cell::new(&format!("{}", item["status"])),
+            Cell::new(&format!("{:#?}", item["request"])),
+        ]));
+    }
+    table.printstd();
+    println!("Total Dur: {}", async_dur);
     println!("=================");
     Ok(())
 }
